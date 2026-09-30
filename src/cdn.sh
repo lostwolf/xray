@@ -120,7 +120,7 @@ cdn_inbound_path() {
 }
 
 cdn_inbound_host() {
-    jq -r '.inbounds[0].streamSettings as $s | ($s.wsSettings.headers.Host // $s.httpSettings.host[0] // $s.grpc_host // $s.xhttpSettings.host // empty)' "$1" 2>/dev/null
+    jq -r '.inbounds[0].streamSettings as $s | (($s.wsSettings.host // $s.wsSettings.headers.Host) // $s.httpSettings.host[0] // $s.grpc_host // $s.xhttpSettings.host // empty)' "$1" 2>/dev/null
 }
 
 cdn_inbound_uuid() {

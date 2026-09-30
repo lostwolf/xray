@@ -121,7 +121,7 @@ has "inbound 文件已生成" test -s "$INBOUND"
 has "inbound 只监听回环" bash -c "[[ \$(jq -r '.inbounds[0].listen' '$INBOUND') == 127.0.0.1 ]]"
 has "inbound 端口正确" bash -c "[[ \$(jq -r '.inbounds[0].port' '$INBOUND') == $ORIGIN_PORT ]]"
 has "inbound 网络为 ws" bash -c "[[ \$(jq -r '.inbounds[0].streamSettings.network' '$INBOUND') == ws ]]"
-has "inbound 域名正确" bash -c "[[ \$(jq -r '.inbounds[0].streamSettings.wsSettings.headers.Host' '$INBOUND') == $DOMAIN ]]"
+has "inbound 域名正确" bash -c "[[ \$(jq -r '.inbounds[0].streamSettings.wsSettings.host // .inbounds[0].streamSettings.wsSettings.headers.Host' '$INBOUND') == $DOMAIN ]]"
 
 TOKEN=$(basename "$(ls -d "$PREFIX"/etc/xray/sub/*/ 2>/dev/null | head -n1)" 2>/dev/null)
 has "订阅 token 已生成" bash -c "[[ -n '$TOKEN' ]]"
@@ -163,7 +163,7 @@ cat >"$WORK/client.json" <<EOF
     "tag":"proxy","protocol":"vless",
     "settings":{"vnext":[{"address":"127.0.0.1","port":$HTTPS_PORT,"users":[{"id":"$UUID","encryption":"none"}]}]},
     "streamSettings":{"network":"ws","security":"tls","tlsSettings":{"serverName":"$DOMAIN","certificates":[{"certificateFile":"$WORK/e2e.pem","usage":"verify"}]},
-                      "wsSettings":{"path":"$WSPATH","headers":{"Host":"$DOMAIN"}}}
+                      "wsSettings":{"path":"$WSPATH","host":"$DOMAIN"}}
   }]
 }
 EOF

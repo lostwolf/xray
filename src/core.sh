@@ -843,6 +843,11 @@ manage() {
         *)       rc-service $is_do_name $is_do ;;
         esac
     else
+        # 单元文件缺失时自动重建 (如未完成安装或被手动删除), 避免无法启动
+        if [[ ! -f /lib/systemd/system/$is_do_name.service && ! -f /etc/systemd/system/$is_do_name.service && -w /lib/systemd/system ]]; then
+            [[ $(type -t install_service) == function ]] || load systemd.sh
+            install_service $is_do_name &>/dev/null
+        fi
         systemctl $is_do $is_do_name
     fi
     [[ $is_test_run && ! $is_new_install ]] && {
@@ -1231,7 +1236,7 @@ get() {
             is_json_data_base=$(jq '.inbounds[0]|.protocol,.port,(.settings|(.clients[0]|.id,.password),.method,.password,.address,.port,.detour.to,(.accounts[0]|.user,.pass))' <<<$is_json_str)
             [[ $? != 0 ]] && err "无法读取此文件: $is_config_file"
             is_json_data_more=$(jq '.inbounds[0]|.streamSettings|.network,.tcpSettings.header.type,((.finalmask|.udp[1].settings.password,.udp[0].type)//(.kcpSettings|.seed,.header.type)),.quicSettings.header.type,.wsSettings.path,.httpSettings.path,.grpcSettings.serviceName,(.xhttpSettings.path//.splithttpSettings.path)' <<<$is_json_str)
-            is_json_data_host=$(jq '.inbounds[0]|.streamSettings|.grpc_host,.wsSettings.headers.Host,.httpSettings.host[0],(.xhttpSettings.host//.splithttpSettings.host)' <<<$is_json_str)
+            is_json_data_host=$(jq '.inbounds[0]|.streamSettings|.grpc_host,(.wsSettings.host//.wsSettings.headers.Host),.httpSettings.host[0],(.xhttpSettings.host//.splithttpSettings.host)' <<<$is_json_str)
             is_json_data_reality=$(jq '.inbounds[0]|.streamSettings|.security,(.realitySettings|.serverNames[0],.publicKey,.privateKey)' <<<$is_json_str)
             is_up_var_set=(null is_protocol port uuid trojan_password ss_method ss_password door_addr door_port is_dynamic_port is_socks_user is_socks_pass net tcp_type kcp_seed kcp_type quic_type ws_path h2_path grpc_path xhttp_path grpc_host ws_host h2_host xhttp_host is_reality is_servername is_public_key is_private_key)
             [[ $is_debug ]] && msg "\n------------- debug: $is_config_file -------------"
@@ -1370,7 +1375,7 @@ get() {
         *ws* | *websocket)
             net=ws
             [[ ! $path ]] && path="/$uuid"
-            is_stream='wsSettings:{path:"'$path'",headers:{Host:"'$host'"}}'
+            is_stream='wsSettings:{path:"'$path'",host:"'$host'"}'
             ;;
         *grpc* | *gun)
             net=grpc
