@@ -28,15 +28,21 @@
 
 ## 🚀 快速上手
 
-### 1. 安装 xctl
+### 1. 一键安装（推荐）
 
-在干净的 VPS（Debian 11/12、Ubuntu 22.04+）上：
+在干净的 VPS（Debian 10+ / Ubuntu 20.04+ / CentOS 8+ / Alpine）上，直接以 root 身份执行：
 
 ```bash
-# 复制或克隆本工程至 /etc/xray/sh，并建立全局软链接
-chmod +x /etc/xray/sh/xray.sh
-ln -sf /etc/xray/sh/xray.sh /usr/local/bin/xray
+bash <(curl -fsSL https://raw.githubusercontent.com/lostwolf/xray/main/install.sh)
 ```
+
+或使用 `wget`：
+
+```bash
+wget -qO- https://raw.githubusercontent.com/lostwolf/xray/main/install.sh | bash
+```
+
+> **自动完成**：系统依赖、最新官方 Xray Core、Caddy 二进制下载、GeoIP/GeoSite 路由库、systemd 守护进程注册及基础环境初始化。
 
 ### 2. 方式 A：通过 Cloudflare API 一键全自动配置（推荐）
 

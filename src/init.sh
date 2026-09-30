@@ -1,7 +1,7 @@
 #!/bin/bash
 
-author=xctl
-# https://github.com/xctl/xctl
+author=lostwolf
+# https://github.com/lostwolf/xray
 
 # bash fonts colors
 red='\e[31m'

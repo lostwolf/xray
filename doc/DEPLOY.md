@@ -36,15 +36,21 @@ Cloudflare CDN (橙云 Proxied，隐藏源站真实 IP)
 
 ## 2. 安装与一键配置
 
-### 2.1 安装 xctl
+### 2.1 一键安装 xctl（推荐）
 
-将代码克隆到服务器或解压到 `/etc/xray/sh`，执行软链接使 `xray` 命令全局可用：
+在干净的 VPS 上以 root 权限执行：
 
 ```bash
-# 赋予执行权限并建立命令软链接
-chmod +x /etc/xray/sh/xray.sh
-ln -sf /etc/xray/sh/xray.sh /usr/local/bin/xray
+bash <(curl -fsSL https://raw.githubusercontent.com/lostwolf/xray/main/install.sh)
 ```
+
+或使用 `wget`：
+
+```bash
+wget -qO- https://raw.githubusercontent.com/lostwolf/xray/main/install.sh | bash
+```
+
+脚本将全自动安装系统依赖、最新官方 Xray Core、Caddy Web 服务器、Geo 规则库，并注册好开机自启系统服务。
 
 ### 2.2 一键配置 CDN 回源
 
