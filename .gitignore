@@ -1,0 +1,12 @@
+# Test / sandbox artifacts
+.e2e/
+cache.db
+*.log
+
+# Heavy tools & data
+tools/jq
+tools/*.dat
+
+# Editor & OS files
+.DS_Store
+Thumbs.db
