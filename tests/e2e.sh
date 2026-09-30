@@ -247,6 +247,16 @@ has "remove 之后站点文件已删除" bash -c "[[ ! -f '$SITE' ]]"
 has "remove 之后 Caddyfile 仍然合法" "$BIN/caddy" validate --config "$PREFIX/etc/caddy/Caddyfile" --adapter caddyfile
 
 # ---------------------------------------------------------------------------
+info "7. 交互面板冒烟测试"
+MENU="$PREFIX/etc/xray/sh/xray.sh"
+has "主面板渲染并含状态总览" bash -c "echo q | bash '$MENU' 2>/dev/null | grep -q '服务管理面板'"
+has "面板显示订阅状态" bash -c "echo q | bash '$MENU' 2>/dev/null | grep -q '已启用'"
+has "面板 EOF 安全退出" bash -c "bash '$MENU' </dev/null &>/dev/null"
+has "面板选项 3 查看配置 (含 exec 重载链)" bash -c "printf '3\n\nq\n' | bash '$MENU' 2>/dev/null | grep -q '协议'"
+has "面板选项 8 订阅地址" bash -c "printf '8\n' | bash '$MENU' 2>/dev/null | grep -q '订阅 token'"
+has "无效选项友好提示" bash -c "printf '99\n\nq\n' | bash '$MENU' 2>/dev/null | grep -q '无效的选项'"
+
+# ---------------------------------------------------------------------------
 info "结果"
 printf '  PASS: %d   FAIL: %d\n' "$PASS" "$FAIL"
 [[ $FAIL == 0 ]] || exit 1

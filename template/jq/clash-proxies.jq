@@ -33,6 +33,11 @@ def clash_proxy:
                           + (if ($n.host // "") != "" then { headers: { Host: $n.host } } else {} end) ) }
      elif $n.network == "grpc" then
        . + { network: "grpc", "grpc-opts": { "grpc-service-name": ($n.serviceName // $n.path // "") } }
+     elif $n.network == "xhttp" then
+       # 过 CDN 场景用兼容性最高的 packet-up; host 与 TLS servername 是不同字段
+       . + { network: "xhttp",
+             "xhttp-opts": ( { path: ($n.path // "/"), mode: ($n.xhttpMode // "packet-up") }
+                          + (if ($n.host // "") != "" then { host: $n.host } else {} end) ) }
      else
        . + { network: ($n.network // "tcp") }
      end)

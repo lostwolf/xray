@@ -26,6 +26,9 @@ def sb_transport:
         + (if (.host // "") != "" then { headers: { Host: .host } } else {} end)) }
   elif .network == "grpc" then
     { transport: { type: "grpc", service_name: (.serviceName // .path // "") } }
+  elif .network == "xhttp" then
+    ({ transport: { type: "xhttp", path: (.path // "/"), mode: (.xhttpMode // "packet-up") } }
+        + (if (.host // "") != "" then { host: .host } else {} end))
   else {} end;
 
 def sb_outbound:
