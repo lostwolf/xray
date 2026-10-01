@@ -51,7 +51,7 @@ EOF
     xray | v2ray)
         is_doc_site=https://xtls.github.io/
         [[ $1 == 'v2ray' ]] && is_doc_site=https://www.v2fly.org/
-        cat >/lib/systemd/system/$is_core.service <<<"
+        cat >/etc/systemd/system/$is_core.service <<<"
 [Unit]
 Description=$is_core_name Service
 Documentation=$is_doc_site
@@ -75,7 +75,7 @@ ProtectSystem=full
 WantedBy=multi-user.target"
         ;;
     caddy)
-        cat >/lib/systemd/system/caddy.service <<<"
+        cat >/etc/systemd/system/caddy.service <<<"
 #https://github.com/caddyserver/dist/blob/master/init/caddy.service
 [Unit]
 Description=Caddy
@@ -88,7 +88,7 @@ Type=notify
 User=root
 Group=root
 ExecStart=$is_caddy_bin run --environ --config $is_caddyfile --adapter caddyfile
-ExecReload=$is_caddy_bin reload --config $is_caddyfile --adapter caddyfile
+ExecReload=$is_caddy_bin reload --config $is_caddyfile --adapter caddyfile --force
 TimeoutStopSec=5s
 LimitNPROC=10000
 LimitNOFILE=1048576

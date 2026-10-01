@@ -787,13 +787,13 @@ uninstall() {
     fi
     manage stop &>/dev/null
     manage disable &>/dev/null
-    rm -rf $is_core_dir $is_log_dir $is_sh_bin /lib/systemd/system/$is_core.service /etc/init.d/$is_core
+    rm -rf $is_core_dir $is_log_dir $is_sh_bin /lib/systemd/system/$is_core.service /etc/systemd/system/$is_core.service /etc/init.d/$is_core
     sed -i "/$is_core/d" /root/.bashrc
     # uninstall caddy; 2 is ask result
     if [[ $REPLY == '2' ]]; then
         manage stop caddy &>/dev/null
         manage disable caddy &>/dev/null
-        rm -rf $is_caddy_dir $is_caddy_bin /lib/systemd/system/caddy.service /etc/init.d/caddy
+        rm -rf $is_caddy_dir $is_caddy_bin /lib/systemd/system/caddy.service /etc/systemd/system/caddy.service /etc/init.d/caddy
     fi
     [[ $is_install_sh ]] && return # reinstall
     _green "\n卸载完成!"
@@ -844,7 +844,7 @@ manage() {
         esac
     else
         # 单元文件缺失时自动重建 (如未完成安装或被手动删除), 避免无法启动
-        if [[ ! -f /lib/systemd/system/$is_do_name.service && ! -f /etc/systemd/system/$is_do_name.service && -w /lib/systemd/system ]]; then
+        if [[ ! -f /etc/systemd/system/$is_do_name.service && ! -f /lib/systemd/system/$is_do_name.service && -w /etc/systemd/system ]]; then
             [[ $(type -t install_service) == function ]] || load systemd.sh
             install_service $is_do_name &>/dev/null
         fi
@@ -1472,7 +1472,13 @@ get() {
         load systemd.sh
         install_service caddy &>/dev/null
         is_caddy=1
-        _green "安装 Caddy 成功.\n"
+        # 安装后必须立刻启动, 否则 CDN 回源 / 订阅分发全挂在死源站上 (CF 521)
+        manage start caddy &>/dev/null
+        if [[ $(pgrep -f $is_caddy_bin) ]]; then
+            _green "安装 Caddy 成功, 已启动.\n"
+        else
+            _yellow "Caddy 已安装但未能启动, 请执行: $is_core restart caddy\n"
+        fi
         ;;
     reinstall)
         is_install_sh=$(cat $is_sh_dir/install.sh)

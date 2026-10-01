@@ -191,7 +191,7 @@ fi
 if [[ -f $is_caddy_bin && -d $is_caddy_dir && $is_caddy_service ]]; then
     is_caddy=1
     # fix caddy run; ver >= 2.8.2 (仅 systemd)
-    [[ ! $is_alpine ]] && [[ ! $(grep '\-\-adapter caddyfile' /lib/systemd/system/caddy.service) ]] && {
+    [[ ! $is_alpine ]] && [[ ! $(grep '\-\-adapter caddyfile' /etc/systemd/system/caddy.service 2>/dev/null || grep '\-\-adapter caddyfile' /lib/systemd/system/caddy.service 2>/dev/null) ]] && {
         load systemd.sh
         install_service caddy
         systemctl restart caddy &

@@ -418,6 +418,10 @@ cdn_validate_or_die() {
 
 cdn_restart() {
     [[ $XCTL_NO_RESTART ]] && { _yellow "XCTL_NO_RESTART=1, 跳过服务重启"; return 0; }
+    # 回源链路 = CF -> Caddy(443) -> Xray(127.0.0.1); 两个都要活着, 缺一个就是 CF 521
+    if [[ $is_caddy ]] || [[ -x $is_caddy_bin ]]; then
+        manage restart caddy &
+    fi
     manage restart &
     msg ""
 }
@@ -576,8 +580,10 @@ cdn_doctor() {
         if ss -ltnH 2>/dev/null | awk '{print $4}' | grep -q ":$is_https_port\$"; then
             _green "[PASS] Caddy 正在监听 $is_https_port"
         else
-            _yellow "[WARN] 未发现 $is_https_port 监听 (Caddy 未运行?)"
-            warns=$((warns + 1))
+            # Caddy 没监听 = CF 回源必然 521, 这是致命问题而不是提示
+            _red "[FAIL] 未发现 $is_https_port 监听: Caddy 未运行"
+            _yellow "      修复: $is_core restart caddy   (然后重跑 doctor 确认)"
+            fails=$((fails + 1))
         fi
         if ss -ltnH 2>/dev/null | awk '{print $4}' | grep -qE "(^|\[::\]|0\.0\.0\.0):$CDN_PORT\$"; then
             _red "[FAIL] 回源端口 $CDN_PORT 监听在公网地址上"

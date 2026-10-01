@@ -146,6 +146,16 @@ xctl 扩展命令:
   cert self <domain>            为域名生成自签证书 (调试用)
 ```
 
+## 🩺 常见故障排查
+
+| 症状 | 原因 | 处理 |
+|---|---|---|
+| 访问域名报 **Cloudflare 521** (Web server is down) | CF 连不上源站: Caddy 未运行或 443 被防火墙拦截 | `xray restart caddy` 后重跑 `xctl cdn doctor <域名>` 确认 |
+| Cloudflare 525 (SSL handshake failed) | CF 加密模式为 Full (strict) 但源站证书缺失/过期 | `xctl cert cf <域名> <CF_API_KEY>` 重签, CF 面板改回 Flexible 先恢复 |
+| 面板里 Caddy 显示"已停止" | caddy.service 未安装或启动失败 | 面板 (9) 运行管理 → 启动 Caddy; `manage()` 会自动补写缺失的 unit 文件 |
+
+> 💡 任何回源异常, 先跑 `xctl cdn doctor <域名>` — 它会逐项检查 inbound 监听、Xray 配置、Caddy 443 监听、证书、订阅产物和 CF DNS 解析, 精确指出断在哪一环。
+
 上游所有原有指令（如 `xray add`, `xray change`, `xray del`, `xray status`, `xray bbr` 等）均完整保留且无缝兼容。
 
 ---
