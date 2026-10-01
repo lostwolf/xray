@@ -1682,6 +1682,8 @@ url_qr() {
 
 # update core, sh, caddy
 update() {
+    # CLI 路径不会经过面板的 env 加载, 先读一次全局状态 (IS_SH_BUILD_SHA 等)
+    xctl_load_env
     case $1 in
     1 | core | $is_core)
         is_update_name=core
@@ -1707,6 +1709,8 @@ update() {
         ;;
     esac
     [[ $2 ]] && is_new_ver=v${2#v}
+    # 当前版本未知 (如 Caddy 未完成安装) 时继续走最新版获取, 避免"空==空"误判为已是最新
+    [[ ! $is_run_ver && ! $is_new_ver ]] && is_run_ver=unknown
     [[ $is_run_ver == $is_new_ver ]] && {
         msg "\n自定义版本和当前 $is_show_name 版本一样, 无需更新.\n"
         exit
@@ -1716,12 +1720,24 @@ update() {
         msg "\n使用自定义版本更新 $is_show_name: $(_green $is_new_ver)\n"
     else
         get_latest_version $is_update_name
-        [[ $is_run_ver == $latest_ver ]] && {
+        # 脚本走 codeload 回退时版本号形如 v1.35+5ac373f, 只比较基础号后的 commit 标识
+        if [[ $is_update_name == sh && $latest_ver == *+* ]]; then
+            if [[ -z $IS_SH_BUILD_SHA || $IS_SH_BUILD_SHA != ${latest_ver##*+} ]]; then
+                IS_SH_BUILD_SHA=${latest_ver##*+}
+                xctl_save_env_build_sha
+                msg "\n发现 $is_show_name 新版本: $(_green $latest_ver)\n"
+                is_new_ver=$latest_ver
+            else
+                msg "\n$is_show_name 当前已经是最新版本了.\n"
+                exit
+            fi
+        elif [[ $is_run_ver == $latest_ver ]]; then
             msg "\n$is_show_name 当前已经是最新版本了.\n"
             exit
-        }
-        msg "\n发现 $is_show_name 新版本: $(_green $latest_ver)\n"
-        is_new_ver=$latest_ver
+        else
+            msg "\n发现 $is_show_name 新版本: $(_green $latest_ver)\n"
+            is_new_ver=$latest_ver
+        fi
     fi
     download $is_update_name $is_new_ver
     msg "更新成功, 当前 $is_show_name 版本: $(_green $is_new_ver)\n"

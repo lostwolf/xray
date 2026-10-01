@@ -161,14 +161,31 @@ xctl_load_env() {
 }
 
 # 保存 xctl 全局状态
+# 先合并磁盘值: CLI 路径 (如 update) 可能没经过面板加载, 直接保存会把 token 抹空.
+# 内存中已有的值优先 (调用方刚设置的不会被磁盘旧值覆盖).
 xctl_save_env() {
+    local disk_token disk_enable disk_sha
+    [[ -f $is_xctl_env ]] && {
+        disk_token=$(sed -n 's/^IS_SUB_TOKEN=//p' $is_xctl_env)
+        disk_enable=$(sed -n 's/^IS_SUB_ENABLE=//p' $is_xctl_env)
+        disk_sha=$(sed -n 's/^IS_SH_BUILD_SHA=//p' $is_xctl_env)
+    }
+    [[ -z $IS_SUB_TOKEN ]] && IS_SUB_TOKEN=$disk_token
+    [[ -z $IS_SUB_ENABLE ]] && IS_SUB_ENABLE=$disk_enable
+    [[ -z $IS_SH_BUILD_SHA ]] && IS_SH_BUILD_SHA=$disk_sha
     mkdir -p $is_xctl_dir
     cat >$is_xctl_env <<-EOF
 # xctl 状态文件, 由脚本自动维护
 IS_SUB_TOKEN=$IS_SUB_TOKEN
 IS_SUB_ENABLE=$IS_SUB_ENABLE
+IS_SH_BUILD_SHA=$IS_SH_BUILD_SHA
 EOF
     chmod 600 $is_xctl_env
+}
+
+# 仅保存脚本构建标识 (codeload 更新通道用)
+xctl_save_env_build_sha() {
+    xctl_save_env
 }
 
 # 在 add / change / del 之后自动同步订阅; sub.sh 缺失时为空操作, 且永不中断主流程

@@ -14,8 +14,16 @@ get_latest_version() {
         ;;
     esac
     latest_ver=$(_wget -qO- $url | grep tag_name | grep -E -o 'v([0-9.]+)')
+    # 仓库未发布 GitHub Release 时 (如直接 fork 后按分支开发), 上面会拿不到版本号.
+    # 回退方案 (仅脚本): 读默认分支里 xray.sh 的 is_sh_ver, 并以 commit sha 标识构建.
+    if [[ ! $latest_ver && $1 == sh ]]; then
+        local raw_ver raw_sha
+        raw_ver=$(_wget -qO- "https://raw.githubusercontent.com/$is_sh_repo/${is_sh_branch:-main}/xray.sh" | grep -m1 -E '^is_sh_ver=' | grep -E -o 'v[0-9.]+')
+        raw_sha=$(_wget -qO- "https://api.github.com/repos/$is_sh_repo/commits/${is_sh_branch:-main}" | grep -m1 '"sha"' | cut -d'"' -f4)
+        [[ $raw_ver ]] && latest_ver="$raw_ver+${raw_sha:0:7}"
+    fi
     [[ ! $latest_ver ]] && {
-        err "获取 ${name} 最新版本失败."
+        err "获取 ${name} 最新版本失败.\n备注: 若 $is_sh_repo 是私有/受限仓库, 请先 $(_green git release) 发布一个 Release."
     }
     unset name url
 }
@@ -40,10 +48,24 @@ download() {
     sh)
         name="$is_core_name 脚本"
         tmpfile=$tmpdir/sh.zip
-        link="https://github.com/${is_sh_repo}/releases/download/${latest_ver}/code.zip"
+        # GitHub Release 包 (无前缀平铺); 无 Release 的仓库走 codeload 分支 zip (带 <repo>-<branch>/ 前缀)
+        if [[ $(grep -E -o '\+[0-9a-f]{7}$' <<<"$latest_ver") ]]; then
+            link="https://codeload.github.com/$is_sh_repo/zip/refs/heads/${is_sh_branch:-main}"
+        else
+            link="https://github.com/$is_sh_repo/releases/download/${latest_ver}/code.zip"
+        fi
         download_file
-        unzip -qo $tmpfile -d $is_sh_dir
-        chmod +x $is_sh_bin
+        # 兼容两种 zip 结构: Release 平铺 / codeload 带前缀目录
+        if unzip -l $tmpfile | grep -qE '[0-9a-zA-Z._-]+/xray\.sh'; then
+            unzip -qo $tmpfile -d $tmpdir/un
+            local prefix
+            prefix=$(unzip -l $tmpfile | grep -E -o '[0-9a-zA-Z._-]+/xray\.sh' | head -1 | sed 's|/xray\.sh||')
+            cp -rf $tmpdir/un/$prefix/* $is_sh_dir/
+            rm -rf $tmpdir/un
+        else
+            unzip -qo $tmpfile -d $is_sh_dir
+        fi
+        [[ -e $is_sh_bin ]] && chmod +x $is_sh_bin
         ;;
     dat)
         name="geoip.dat"
