@@ -129,7 +129,7 @@ menu_pick() {
 menu_pause() {
     echo
     echo -ne "按 $(_green Enter 回车键) 返回面板, 或按 $(_red Ctrl + C) 退出."
-    read -rs -d $'\n'
+    read -rs -d $'\n' || true
     echo
 }
 

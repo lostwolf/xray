@@ -222,6 +222,53 @@ has "mihomo 经生成 profile 代理成功" bash -c "curl -s --noproxy '*' --max
 kill $MH_PID 2>/dev/null
 
 # ---------------------------------------------------------------------------
+info "5b. REALITY 节点进订阅 (sing-box / mihomo 双校验)"
+# add 无 -y 标志, 沙箱无外网 (get_ip 会失败), 用 printf 喂 stdin + 预填参数
+# 端口动态挑一个空闲的, 避免与残留进程/上轮 e2e 冲突
+REALITY_UUID=$(cat /proc/sys/kernel/random/uuid)
+REALITY_PORT=$(shuf -i 21000-29999 -n 1)
+while ss -ltnH 2>/dev/null | awk '{print $4}' | grep -q ":$REALITY_PORT\$"; do
+    REALITY_PORT=$(shuf -i 21000-29999 -n 1)
+done
+# ip=... 预设绕过 get_ip (外网探测在受限网络会拖慢/卡死沙箱)
+printf '\n\n\n' | ip=127.0.0.11 run_xctl add reality "$REALITY_PORT" "$REALITY_UUID" www.microsoft.com >"$WORK/reality-add.log" 2>&1
+REALITY_INBOUND=$(ls "$PREFIX"/etc/xray/conf/VLESS-REALITY-*.json 2>/dev/null | head -n1)
+has "REALITY inbound 已生成" bash -c "[[ -s '$REALITY_INBOUND' ]]"
+if [[ -z "$REALITY_INBOUND" ]]; then
+    bad "REALITY add 失败 (见 $WORK/reality-add.log)"; tail -20 "$WORK/reality-add.log"
+fi
+run_xctl sub gen >/dev/null 2>&1
+has "singbox.json 含 REALITY 节点" bash -c "jq -e '.outbounds[] | select(.tls.reality.enabled == true and .flow == \"xtls-rprx-vision\")' '$SUBDIR/singbox.json' >/dev/null"
+has "singbox REALITY 带 uTLS (官方 sing-box 硬性要求)" bash -c "jq -e '.outbounds[] | select(.tls.reality.enabled == true) | .tls.utls.enabled == true' '$SUBDIR/singbox.json' >/dev/null"
+has "clash.yaml 含 REALITY 节点" bash -c "grep -q '\"reality-opts\"' '$SUBDIR/clash.yaml'"
+# 用改造脚本把 server 指到本地做语法校验 (REALITY 不能真连, 只验证 profile 合法性)
+python3 - "$SUBDIR/singbox.json" "$WORK/singbox-reality.json" "$HTTPS_PORT" <<'PY'
+import json, sys
+src, dst, port = sys.argv[1], sys.argv[2], int(sys.argv[3])
+cfg = json.load(open(src))
+cfg["inbounds"] = [i for i in cfg["inbounds"] if i.get("type") == "mixed"]
+for o in cfg["outbounds"]:
+    if o.get("type") in ("vless", "vmess", "trojan", "shadowsocks") and o.get("server"):
+        o["server"] = "127.0.0.1"
+        o["server_port"] = port
+json.dump(cfg, open(dst, "w"), indent=2, ensure_ascii=False)
+PY
+has "sing-box 校验含 REALITY 的 profile" "$BIN/sing-box" -c "$WORK/singbox-reality.json" check
+mkdir -p "$WORK/mihomo-reality"
+cp -f "$BIN/geoip.dat" "$BIN/geosite.dat" "$WORK/mihomo-reality/" 2>/dev/null || true
+python3 - "$SUBDIR/clash.yaml" "$WORK/clash-reality.yaml" "$HTTPS_PORT" <<'PY'
+import sys, yaml
+src, dst, port = sys.argv[1], sys.argv[2], int(sys.argv[3])
+cfg = yaml.safe_load(open(src))
+cfg.pop("socks-port", None)
+for p in cfg.get("proxies", []):
+    p["server"] = "127.0.0.1"
+    p["port"] = port
+yaml.safe_dump(cfg, open(dst, "w"), allow_unicode=True, sort_keys=False)
+PY
+has "mihomo 校验含 REALITY 的 profile" bash -c "'$BIN/mihomo' -t -f '$WORK/clash-reality.yaml' -d '$WORK/mihomo-reality' < /dev/null"
+
+# ---------------------------------------------------------------------------
 info "6. doctor 与负向用例"
 run_xctl cdn doctor "$DOMAIN" >"$WORK/doctor.log" 2>&1
 if [[ $? == 0 ]]; then ok "cdn doctor 全部通过"; else bad "cdn doctor 有失败项"; grep -E 'FAIL|WARN' "$WORK/doctor.log"; fi
@@ -252,7 +299,8 @@ MENU="$PREFIX/etc/xray/sh/xray.sh"
 has "主面板渲染并含状态总览" bash -c "echo q | bash '$MENU' 2>/dev/null | grep -q '服务管理面板'"
 has "面板显示订阅状态" bash -c "echo q | bash '$MENU' 2>/dev/null | grep -q '已启用'"
 has "面板 EOF 安全退出" bash -c "bash '$MENU' </dev/null &>/dev/null"
-has "面板选项 3 查看配置 (含 exec 重载链)" bash -c "printf '3\n\nq\n' | bash '$MENU' 2>/dev/null | grep -q '协议'"
+# 选 2 = WS 节点 (REALITY 节点的 info 需要公网探测, 沙箱不稳定, 故显式选 WS)
+has "面板选项 3 查看配置 (含 exec 重载链)" bash -c "printf '3\n2\n\nq\n' | bash '$MENU' 2>/dev/null | grep -q 'WS'"
 has "面板选项 8 订阅地址" bash -c "printf '8\n' | bash '$MENU' 2>/dev/null | grep -q '订阅 token'"
 has "无效选项友好提示" bash -c "printf '99\n\nq\n' | bash '$MENU' 2>/dev/null | grep -q '无效的选项'"
 

@@ -137,8 +137,9 @@ get_uuid() {
 
 get_ip() {
     [[ $ip || $is_no_auto_tls || $is_gen || $is_dont_get_ip ]] && return
-    export "$(_wget -4 -qO- https://one.one.one.one/cdn-cgi/trace | grep ip=)" &>/dev/null
-    [[ ! $ip ]] && export "$(_wget -6 -qO- https://one.one.one.one/cdn-cgi/trace | grep ip=)" &>/dev/null
+    # timeout 兜底: DNS 挂死等场景 wget 的 -T 不一定生效, 用整体超时避免配置流程卡死
+    export "$(timeout 15 _wget -4 -T 8 -qO- https://one.one.one.one/cdn-cgi/trace | grep ip=)" &>/dev/null
+    [[ ! $ip ]] && export "$(timeout 15 _wget -6 -T 8 -qO- https://one.one.one.one/cdn-cgi/trace | grep ip=)" &>/dev/null
     [[ ! $ip ]] && {
         err "获取服务器 IP 失败.."
     }
@@ -286,7 +287,11 @@ ask() {
     [[ $is_tmp_list ]] && show_list "${is_tmp_list[@]}"
     while :; do
         echo -ne $is_opt_input_msg
-        read REPLY
+        # EOF 保护: stdin 耗尽时直接退出, 避免 REPLY 残留旧值造成死循环
+        read REPLY || {
+            [[ $is_emtpy_exit ]] && exit
+            err "读取输入失败 (EOF), 无法继续交互."
+        }
         [[ ! $REPLY && $is_emtpy_exit ]] && exit
         [[ ! $REPLY && $is_default_arg ]] && export $is_ask_set=$is_default_arg && break
         [[ "$REPLY" == "${is_str}2${is_get}3${is_opt}3" && $is_ask_set == 'is_main_pick' ]] && {
@@ -333,6 +338,7 @@ ask() {
 create() {
     case $1 in
     server)
+        xctl_need_jq
         get new
 
         # file name
@@ -394,6 +400,7 @@ create() {
     client)
         is_tls=tls
         is_client=1
+        xctl_need_jq
         get info $2
         [[ ! $is_client_id_json ]] && err "($is_config_name) 不支持生成客户端配置."
         [[ $host ]] && is_stream="${is_stream/network:\"$net\"/network:\"$net\",security:\"tls\"}"

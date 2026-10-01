@@ -57,6 +57,7 @@ sub_reset_vars() {
     unset is_reality is_servername is_public_key is_private_key path host header_type
     unset is_stream is_client_id_json is_server_id_json is_config_name is_no_auto_tls
     unset is_trojan is_url is_dynamic_port_file is_dynamic_port_range is_addr
+    unset is_short_id is_xhttp_mode
 }
 
 # 客户端应连接的地址 / 端口 / TLS
@@ -86,13 +87,14 @@ sub_endpoint() {
 sub_node_desc() {
     local name=$1 service
     service=$(sed 's#/##g' <<<"${path:-/}")
-    jq -nc         --arg name "$name"         --arg protocol "$is_protocol"         --arg server "$is_server"         --argjson port "$is_server_port"         --arg uuid "${uuid:-$trojan_password}"         --arg password "${trojan_password:-$ss_password}"         --arg cipher "$ss_method"         --arg network "${net:-tcp}"         --arg path "${path:-/}"         --arg service_name "$service"         --arg host "${host:-$is_server}"         --arg sni "$is_server_sni"         --arg flow "$is_flow"         --arg xhttp_mode "${is_xhttp_mode:-packet-up}"         --arg public_key "$is_public_key"         --arg short_id "$is_short_id"         --argjson tls "${is_server_tls:-0}"         --argjson reality "$([[ $is_reality ]] && echo true || echo false)"         '{
+    jq -nc         --arg name "$name"         --arg protocol "$is_protocol"         --arg server "$is_server"         --argjson port "$is_server_port"         --arg uuid "${uuid:-$trojan_password}"         --arg password "${trojan_password:-$ss_password}"         --arg cipher "$ss_method"         --arg network "${net:-tcp}"         --arg path "${path:-/}"         --arg service_name "$service"         --arg host "${host:-$is_server}"         --arg sni "$is_server_sni"         --arg flow "$is_flow"         --arg xhttp_mode "${is_xhttp_mode:-packet-up}"         --arg public_key "$is_public_key"         --arg short_id "$is_short_id"         --arg header_type "${header_type:-none}"         --argjson tls "${is_server_tls:-0}"         --argjson reality "$([[ $is_reality ]] && echo true || echo false)"         '{
             name: $name, protocol: $protocol, server: $server, port: $port,
             uuid: $uuid, password: $password, cipher: $cipher,
             network: $network, path: $path, serviceName: $service_name,
             host: $host, sni: $sni, flow: $flow,
             xhttpMode: $xhttp_mode,
             publicKey: $public_key, shortId: $short_id,
+            headerType: $header_type,
             tls: $tls, reality: $reality, alterId: 0,
             fingerprint: "chrome", udp: true
         }
@@ -122,7 +124,7 @@ sub_collect() {
         esac
         [[ ! $is_client_id_json ]] && continue
         case $net in
-        ws | grpc | tcp | ss | xhttp | splithttp) ;;
+        ws | grpc | tcp | ss | xhttp | splithttp | reality) ;;
         *)
             is_sub_skipped+=("$f: 传输 ($net) 暂不被支持")
             continue

@@ -7,7 +7,9 @@
 
 def clash_proxy:
   . as $n
-  | { name: $n.name, type: $n.protocol, server: $n.server, port: $n.port, udp: ($n.udp // true) }
+  # mihomo 的 ss 类型名是 "ss"; 其余协议名与 xctl 一致
+  | { name: $n.name, type: (if $n.protocol == "shadowsocks" then "ss" else $n.protocol end),
+      server: $n.server, port: $n.port, udp: ($n.udp // true) }
   | if $n.protocol == "shadowsocks" then
       . + { cipher: $n.cipher, password: $n.password }
     elif $n.protocol == "trojan" then
@@ -17,6 +19,7 @@ def clash_proxy:
     else
       . + { uuid: $n.uuid, alterId: ($n.alterId // 0), tls: ($n.tls // false),
             "skip-cert-verify": false, "client-fingerprint": ($n.fingerprint // "chrome") }
+      + (if $n.protocol == "vmess" then { cipher: "auto" } else {} end)
       + (if ($n.sni // "") != "" then { servername: $n.sni } else {} end)
     end
   # reality / vision: flow 只在 reality 场景设置 (WS 下带 flow 会被 mihomo 拒绝)
@@ -38,8 +41,14 @@ def clash_proxy:
        . + { network: "xhttp",
              "xhttp-opts": ( { path: ($n.path // "/"), mode: ($n.xhttpMode // "packet-up") }
                           + (if ($n.host // "") != "" then { host: $n.host } else {} end) ) }
+     elif $n.network == "tcp" and ($n.headerType // "none") == "http" then
+       # VMess-TCP http 伪装 -> mihomo network: http (CF 可当普通 HTTP 回源, 也能套 CDN)
+       . + { network: "http",
+             "http-opts": ( { path: [ ($n.path // "/") ] }
+                          + (if ($n.host // "") != "" then { headers: { Host: [ $n.host ] } } else {} end) ) }
      else
-       . + { network: ($n.network // "tcp") }
+       # reality 属于 TLS 层而非传输层: mihomo 只认 network tcp (默认)
+       . + { network: (if ($n.network // "tcp") == "reality" then "tcp" else ($n.network // "tcp") end) }
      end)
   | with_entries(select(.value != null));
 

@@ -14,7 +14,9 @@ def sb_tls:
     { tls: (
         { enabled: true, server_name: (.sni // "") }
         + (if (.reality // false)
-           then { reality: { enabled: true, public_key: .publicKey, short_id: (.shortId // "") } }
+           # sing-box 要求 reality 客户端必须启用 uTLS
+           then { utls: { enabled: true, fingerprint: (.fingerprint // "chrome") },
+                  reality: { enabled: true, public_key: .publicKey, short_id: (.shortId // "") } }
            else { utls: { enabled: true, fingerprint: (.fingerprint // "chrome") } }
            end)
       ) }
@@ -29,6 +31,13 @@ def sb_transport:
   elif .network == "xhttp" then
     ({ transport: { type: "xhttp", path: (.path // "/"), mode: (.xhttpMode // "packet-up") } }
         + (if (.host // "") != "" then { host: .host } else {} end))
+  elif .network == "reality" then
+    # REALITY 只能走 TCP (无 transport); SNI/公钥在 sb_tls 的 reality 分支里
+    {}
+  elif .network == "tcp" and (.headerType // "none") == "http" then
+    # VMess-TCP http 伪装 -> sing-box vmess.transport: http (可过普通 HTTP CDN 回源)
+    { transport: ({ type: "http", path: (.path // "/") }
+        + (if (.host // "") != "" then { headers: { Host: .host } } else {} end)) }
   else {} end;
 
 def sb_outbound:
@@ -39,7 +48,8 @@ def sb_outbound:
      elif $n.protocol == "trojan" then { password: $n.password }
      elif $n.protocol == "vmess" then { uuid: $n.uuid, security: "auto", alter_id: ($n.alterId // 0) }
      else { uuid: $n.uuid }
-          + (if ($n.flow // "") != "" and ($n.reality // false) then { flow: $n.flow } else {} end)
+          # REALITY + vision: flow 必须带; 普通 TLS 直连 vision 场景也保留 (上游只在此处输出 flow)
+          + (if ($n.flow // "") != "" then { flow: $n.flow } else {} end)
      end)
   + ($n | sb_tls)
   + ($n | sb_transport);
