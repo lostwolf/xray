@@ -137,9 +137,9 @@ get_uuid() {
 
 get_ip() {
     [[ $ip || $is_no_auto_tls || $is_gen || $is_dont_get_ip ]] && return
-    # timeout 兜底: DNS 挂死等场景 wget 的 -T 不一定生效, 用整体超时避免配置流程卡死
-    export "$(timeout 15 _wget -4 -T 8 -qO- https://one.one.one.one/cdn-cgi/trace | grep ip=)" &>/dev/null
-    [[ ! $ip ]] && export "$(timeout 15 _wget -6 -T 8 -qO- https://one.one.one.one/cdn-cgi/trace | grep ip=)" &>/dev/null
+    # -T 8 (连接+读写超时) + -t 2 (重试): 受限网络/DNS 挂死时快速失败, 避免配置流程卡死
+    export "$(_wget -4 -T 8 -t 2 -qO- https://one.one.one.one/cdn-cgi/trace | grep ip=)" &>/dev/null
+    [[ ! $ip ]] && export "$(_wget -6 -T 8 -t 2 -qO- https://one.one.one.one/cdn-cgi/trace | grep ip=)" &>/dev/null
     [[ ! $ip ]] && {
         err "获取服务器 IP 失败.."
     }
